@@ -1,0 +1,56 @@
+package trie
+
+import (
+	"github.com/astaxie/beego"
+	"testing"
+)
+
+func TestAddTrie(t *testing.T) {
+
+
+	data := map[int]string {
+		4:"奥达通",
+		5:"上海展达",
+		8:"上海展达宝马",
+		6:"上海奥迪",
+		7:"浙江上海",
+	}
+
+	n := &node{}
+	for k, v := range data {
+		n.AddValToSids([]rune(v), k)
+	}
+
+	tmpArr := []*node{n}
+	for len(tmpArr) > 0 {
+		n = tmpArr[0]
+		beego.Error( string(n.value), n.sids)
+		if len(n.children) > 0 {
+			tmpArr = append(tmpArr, n.children...)
+		}
+		if len(tmpArr) > 1 {
+			tmpArr = tmpArr[1:]
+		} else {
+			tmpArr = []*node{}
+		}
+	}
+}
+
+func TestGetNodeByVal(t *testing.T)  {
+
+	data := map[int]string {
+		4:"奥达通",
+		5:"上海展达",
+		8:"上海展达宝马",
+		6:"上海奥迪",
+		7:"浙江上海",
+	}
+
+	n := &node{}
+	for k, v := range data {
+		n.AddValToSids([]rune(v), k)
+	}
+
+	res := n.GetNodeByVal([]rune("上海"))
+	beego.Error("res===", string(res.value), string(res.fullValue),res.sids)
+}

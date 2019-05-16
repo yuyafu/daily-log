@@ -1,0 +1,51 @@
+// 参数说明，connect, 锁名称，阻塞时间（秒），锁过期时间（秒）
+func GetRedisLockWithTimeout(client *redis.RedisManager, lockName string, blockTime, lockTimeout int64) (identifier string, ok bool) {
+
+	identifier = fmt.Sprintf("%x", uuid.Rand())
+	lockName = "lock:" + lockName
+
+	now := time.Now()
+	endTime := now
+	if blockTime > 0 {
+		endTime = now.Add(time.Millisecond * time.Duration(blockTime))
+	}
+
+	for endTime.After(now) || endTime.Equal(now) {
+		reply, err := client.SetExNx(lockName, identifier, lockTimeout)
+		beego.Error("GetRedisLockWithTimeout===", err, reply, lockName)
+		if fmt.Sprintf("%s", reply) == "OK" {
+			tt, _ := client.TTL(lockName)
+			if tt == -1 {
+				client.Expire(lockName, lockTimeout)
+			}
+			ok = true
+			return
+		}
+		now = time.Now()
+	}
+	return
+}
+
+func ReleaseRedisLockWithTimeout(client *redis.RedisManager, lockName string, identifier string) (ok bool) {
+
+	lockName = "lock:" + lockName
+	// 尝试5次
+	count := 0
+	for count < 5 {
+		client.Watch(lockName)
+		idf, _ := client.GetString(lockName)
+		if idf == identifier { // 是否还持有那个锁，很重要
+			client.Multi()
+			client.Del(lockName)
+			reply, err := client.Exec(lockName)
+			if err != nil || reply == nil {
+				beego.Error("ReleaseRedisLockWithTimeout==", reply, err, lockName)  // key锁有被修改，重试5次
+				continue
+			}
+			ok = true
+		}
+		client.UnWatch(lockName)
+		break
+	}
+	return
+}
